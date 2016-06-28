@@ -6,6 +6,7 @@ from .errors import (
     CommandArgParseError,
     CommandArgParseMultiError,
     CommandArgParseMissingArg,
+    CommandArgParseMissingArgValue,
     CommandArgParseMissingPositional,
     CommandArgParseArgValidationFailed,
     CommandArgParsePosValidationFailed,
@@ -14,6 +15,7 @@ from .errors import (
     CommandArgParseUndefinedArg,
     CommandArgParseUndefinedFlag,
     CommandArgParseUndefinedPositional,
+    CommandArgParseExtraPositionals,
 )
 
 
@@ -89,7 +91,6 @@ class ArgParser(object):
         assert count == '*' or count >= minimum
 
         self._positional_defs[name] ={
-#            'name': name,
             'help': help,
             'parser': parser,
             'count': count,
@@ -104,17 +105,20 @@ class ArgParser(object):
         self._data = args[::]
         working_args = args[::]
 
+        found_break = False
+
         while working_args:
-            if not working_args[0].startswith('-'):
+            if not working_args[0].startswith('-') or found_break:
                 if not self._parse_positional(working_args):
                     break
                 continue
 
             curr_arg = working_args.pop(0)
-            if curr_arg == '--':
-                break
+            if curr_arg == '--' or found_break:
+                found_break = True
+                continue
 
-            if curr_arg.startswith('--'):
+            elif curr_arg.startswith('--'):
                 curr_arg = curr_arg[2:] # strip leading --
                 self._parse_arg(curr_arg, working_args)
 
@@ -199,7 +203,7 @@ class ArgParser(object):
             try:
                 arg_val = working_args.pop(0)
             except IndexError:
-                arg_val = CommandArgParseMissingArg(arg_name)
+                arg_val = CommandArgParseMissingArgValue(arg_name)
 
         try:
             arg_def = self._arg_defs[arg_name]
@@ -292,7 +296,9 @@ class ArgParser(object):
                 except (ValueError, TypeError), e:
                     errs.append(CommandArgParsePosValidationFailed(pos_name, e))
 
-        #TODO allow_leftovers
+        if not self._allow_leftovers and self._leftovers:
+            errs.append(CommandArgParseExtraPositionals())
+
         if len(errs) == 1:
             raise errs[0]
         elif errs:

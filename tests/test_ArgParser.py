@@ -10,7 +10,10 @@ from commandargparse import (
     CommandArgParseInvalidFlag,
     CommandArgParseUndefinedArg,
     CommandArgParseUndefinedFlag,
+    CommandArgParseUndefinedPositional,
+    CommandArgParseMissingArgValue,
     CommandArgParseMissingPositional,
+    CommandArgParseExtraPositionals,
 )
 
 
@@ -33,7 +36,7 @@ class TestArgParser(unittest.TestCase):
             'bear', '-f', '-t', '--q=5', '--p', '6', #These should all be leftovers
         ]
 
-        parser = ArgParser(strict=False)
+        parser = ArgParser(strict=False, allow_leftovers=True)
         parser.add_positional('tree', count=2)
         parser.parse(args)
 
@@ -73,7 +76,7 @@ class TestArgParser(unittest.TestCase):
             'bear', '-f', '-t', '--q=5', '--p', '6', #These should all be leftovers
         ]
 
-        parser = ArgParser(strict=True)
+        parser = ArgParser(strict=True, allow_leftovers=True)
         parser.add_arg('a')
         parser.add_arg('x')
         parser.add_flag('f')
@@ -134,6 +137,24 @@ class TestArgParser(unittest.TestCase):
         with self.assertRaises(CommandArgParseMissingArg):
             parser.parse(args)
 
+    def test_strict_undefined_arg(self):
+        args = []
+
+        parser = ArgParser(strict=True)
+        parser.parse(args)
+
+        with self.assertRaises(CommandArgParseUndefinedArg):
+            parser.get_arg('not-exist')
+
+    def test_strict_undefined_flag(self):
+        args = []
+
+        parser = ArgParser(strict=True)
+        parser.parse(args)
+
+        with self.assertRaises(CommandArgParseUndefinedFlag):
+            parser.get_flag('x')
+
     def test_arg_default(self):
         args = []
 
@@ -178,6 +199,14 @@ class TestArgParser(unittest.TestCase):
 
         self.assertEqual(parser.get_positional('a'), ['delicious', 'banana', 'pie'])
 
+    def test_nostrict_undefined_positional(self):
+        args = []
+
+        parser = ArgParser(strict=False)
+        parser.parse(args)
+
+        self.assertEqual(parser.get_positional('not-exist'), [])
+
     def test_positional_args_not_filled(self):
         args = ['not', 'enough']
 
@@ -200,4 +229,66 @@ class TestArgParser(unittest.TestCase):
 
         with self.assertRaises(CommandArgParsePosValidationFailed):
             parser.parse(args)
+
+    def test_undefied_positional_flag(self):
+        args = []
+
+        parser = ArgParser(strict=True)
+        parser.parse(args)
+
+        with self.assertRaises(CommandArgParseUndefinedPositional):
+            parser.get_positional('not-exist')
+
+    def test_argument_end_flag(self):
+        args = ['-a', '--b=B', '--A', 'A', '--', '-b', '--b=B', '--A', 'A']
+
+        parser = ArgParser(strict=False, allow_leftovers=True)
+        parser.parse(args)
+
+        self.assertEqual(parser.get_all_args_multi(), {'b': ['B'], 'A': ['A']})
+        self.assertEqual(parser.get_all_flag_counts(), {'a': 1})
+        self.assertEqual(parser.get_all_positionals(), {})
+        self.assertEqual(parser.get_leftovers(), ['-b', '--b=B', '--A', 'A'])
+
+    def test_argument_end_flag_defined_positionals(self):
+        args = ['banana', '--', 'apple']
+
+        parser = ArgParser(strict=False, allow_leftovers=True)
+        parser.add_positional('a', count='*')
+
+        parser.parse(args)
+
+        self.assertEqual(parser.get_all_positionals(), {'a': ['banana', 'apple']})
+        self.assertEqual(parser.get_leftovers(), [])
+
+    def test_missing_arg_value(self):
+        args = ['--A']
+
+        parser = ArgParser(strict=False)
+
+        with self.assertRaises(CommandArgParseMissingArgValue):
+            parser.parse(args)
+
+    def test_too_many_positionals(self):
+        args = ['hello']
+
+        parser = ArgParser(strict=True)
+
+        with self.assertRaises(CommandArgParseExtraPositionals):
+            parser.parse(args)
+
+    def test_multi_error(self):
+        args = ['-a', '--b', 'b', 'banana']
+
+        parser = ArgParser(strict=True)
+
+        try:
+            parser.parse(args)
+
+        except CommandArgParseMultiError, e:
+            pass
+            #TODO check the errors are as expected?
+
+        else:
+            self.fail("CommandArgParseMultiError not raised")
 
