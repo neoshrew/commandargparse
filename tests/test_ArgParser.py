@@ -126,7 +126,6 @@ class TestArgParser(unittest.TestCase):
 
         with self.assertRaises(CommandArgParseInvalidFlag):
             parser.parse(args)
-            print parser._flags
 
     def test_strict_missing_arg(self):
         args = []
