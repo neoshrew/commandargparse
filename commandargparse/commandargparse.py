@@ -84,7 +84,7 @@ class ArgParser(object):
         """
         assert name not in self._positional_defs, "Duplicate positional def"
         assert not self._positional_defs or \
-                self._positional_defs.values()[-1]['count'] != '*', \
+                list(self._positional_defs.values())[-1]['count'] != '*', \
                 "Received another positional def greey def."
         assert (isinstance(count, int) and count > 0) or count == '*', \
                 "count should be an integer >0 or '*'"
@@ -100,7 +100,7 @@ class ArgParser(object):
     def parse(self, args):
         assert self._parsed is False, "ArgParser asked to re-parse"
         self._parsed = True
-        self._work_pos_def = deepcopy(self._positional_defs).items()
+        self._work_pos_def = list(deepcopy(self._positional_defs).items())
 
         self._data = args[::]
         working_args = args[::]
@@ -154,7 +154,7 @@ class ArgParser(object):
         return deepcopy(self._args)
 
     def get_all_args(self):
-        return {k: v[-1] for k, v in self._args.iteritems()}
+        return {k: v[-1] for k, v in self._args.items()}
 
     def get_flag_count(self, flag_name):
         if flag_name in self._flags:
@@ -174,7 +174,7 @@ class ArgParser(object):
         return dict(self._flags)
 
     def get_all_flags(self):
-        return set(k for k, v in self._flags.iteritems() if v > 0)
+        return set(k for k, v in self._flags.items() if v > 0)
 
     def get_all_positionals(self):
         return deepcopy(self._positionals)
@@ -220,7 +220,7 @@ class ArgParser(object):
         else:
             try:
                 fmt_arg_val = parser(arg_val)
-            except (ValueError, TypeError), e:
+            except (ValueError, TypeError) as e:
                 fmt_arg_val = CommandArgParseArgValidationFailed(arg_name, e)
 
         if arg_name not in self._args:
@@ -264,20 +264,20 @@ class ArgParser(object):
     def _validate(self):
         errs = list(
             arg_val
-            for arg_vals in self._args.itervalues()
+            for arg_vals in self._args.values()
             for arg_val in arg_vals
             if isinstance(arg_val, CommandArgParseError)
         )
 
         errs.extend(
             flag_count
-            for flag_count in self._flags.itervalues()
+            for flag_count in self._flags.values()
             if isinstance(flag_count, CommandArgParseError)
         )
 
         errs.extend(
             CommandArgParseMissingArg(arg_name)
-            for arg_name, arg_def in self._arg_defs.iteritems()
+            for arg_name, arg_def in self._arg_defs.items()
             if arg_def['required'] and arg_name not in self._args
         )
 
@@ -293,7 +293,7 @@ class ArgParser(object):
             if parser is not None:
                 try:
                     self._positionals[pos_name] = parser(pos_values)
-                except (ValueError, TypeError), e:
+                except (ValueError, TypeError) as e:
                     errs.append(CommandArgParsePosValidationFailed(pos_name, e))
 
         if not self._allow_leftovers and self._leftovers:

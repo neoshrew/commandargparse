@@ -284,7 +284,7 @@ class TestArgParser(unittest.TestCase):
         try:
             parser.parse(args)
 
-        except CommandArgParseMultiError, e:
+        except CommandArgParseMultiError as e:
             pass
             #TODO check the errors are as expected?
 
