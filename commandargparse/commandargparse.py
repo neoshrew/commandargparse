@@ -109,22 +109,25 @@ class ArgParser(object):
 
         while working_args:
             if not working_args[0].startswith('-') or found_break:
-                if not self._parse_positional(working_args):
-                    break
-                continue
+                if self._parse_positional(working_args):
+                    continue
+                break
 
             curr_arg = working_args.pop(0)
             if curr_arg == '--' or found_break:
                 found_break = True
                 continue
 
-            elif curr_arg.startswith('--'):
+            elif curr_arg.startswith('--') and curr_arg[2] != '-':
                 curr_arg = curr_arg[2:] # strip leading --
                 self._parse_arg(curr_arg, working_args)
 
-            elif curr_arg.startswith('-'):
+            elif curr_arg.startswith('-') and curr_arg[1] != '-':
                 curr_arg = curr_arg[1:] # strip leading -
                 self._parse_flag(curr_arg)
+
+            else:
+                raise CommandArgParseError("Invalid token {}".format(curr_arg))
 
         self._leftovers = working_args
 
@@ -262,6 +265,17 @@ class ArgParser(object):
         return True
 
     def _validate(self):
+        errs = self._validate_args()
+        errs.extend(self._validate_flags())
+        errs.extend(self._validate_positionals())
+        errs.extend(self._validate_leftovers())
+
+        if len(errs) == 1:
+            raise errs[0]
+        elif errs:
+            raise CommandArgParseMultiError(errs)
+
+    def _validate_args(self):
         errs = list(
             arg_val
             for arg_vals in self._args.values()
@@ -270,39 +284,43 @@ class ArgParser(object):
         )
 
         errs.extend(
-            flag_count
-            for flag_count in self._flags.values()
-            if isinstance(flag_count, CommandArgParseError)
-        )
-
-        errs.extend(
             CommandArgParseMissingArg(arg_name)
             for arg_name, arg_def in self._arg_defs.items()
             if arg_def['required'] and arg_name not in self._args
         )
 
-        #TODO validate positionals (parsing, minimums)
-        # .items because we're going to mutate the dict.
-        for pos_name, pos_values in self._positionals.items():
-            pos_def = self._positional_defs[pos_name]
-            if len(pos_values) < pos_def['minimum']:
+        return errs
+
+    def _validate_flags(self):
+        return [
+            flag_count
+            for flag_count in self._flags.values()
+            if isinstance(flag_count, CommandArgParseError)
+        ]
+
+    def _validate_positionals(self):
+        errs = []
+        have_missing = False
+        for pos_name, pos_def in self._positional_defs.items():
+            values = self._positionals.get(pos_name, [])
+
+            if pos_def['minimum'] > len(values) and not have_missing:
                 errs.append(CommandArgParseMissingPositional())
-                continue
 
             parser = pos_def['parser']
             if parser is not None:
                 try:
-                    self._positionals[pos_name] = parser(pos_values)
+                    self._positionals['pos_name'] = parser(values)
                 except (ValueError, TypeError) as e:
                     errs.append(CommandArgParsePosValidationFailed(pos_name, e))
 
-        if not self._allow_leftovers and self._leftovers:
-            errs.append(CommandArgParseExtraPositionals())
+        return errs
 
-        if len(errs) == 1:
-            raise errs[0]
-        elif errs:
-            raise CommandArgParseMultiError(errs)
+    def _validate_leftovers(self):
+        if not self._allow_leftovers and self._leftovers:
+            return [CommandArgParseExtraPositionals()]
+        return []
+
 
     def print_usage(self): # TODO
         sys.stdout.write("""USAGE:

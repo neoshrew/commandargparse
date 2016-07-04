@@ -89,15 +89,6 @@ class CommandArgParseInvalidFlag(CommandArgParseError):
         return "Received undefined flag {0}".format(self.flag)
 
 
-class CommandArgParseUndefinedPositional(CommandArgParseError):
-    def __init__(self, flag):
-        super(CommandArgParseUndefinedPositional, self).__init__(flag)
-        self.flag_name = flag
-
-    def __str__(self):
-        return "Undefined positional {0}".format(self.flag)
-
-
 class CommandArgParseExtraPositionals(CommandArgParseError):
     def __init__(self):
         super(CommandArgParseExtraPositionals, self).__init__()
@@ -120,11 +111,20 @@ class CommandArgParseUndefinedArg(CommandArgParseError):
 class CommandArgParseUndefinedFlag(CommandArgParseError):
     def __init__(self, flag):
         super(CommandArgParseUndefinedFlag, self).__init__(flag)
-        self.flag_name = flag
+        self.flag = flag
 
     def __str__(self):
         return "Undefined flag {0}".format(self.flag)
 
+
+class CommandArgParseUndefinedPositional(CommandArgParseError):
+    def __init__(self, positional_name):
+        super(CommandArgParseUndefinedPositional,
+                self).__init__(positional_name)
+        self.positional_name = positional_name
+
+    def __str__(self):
+        return "Undefined positional {0}".format(self.positional_name)
 
 class CommandArgParseMissingPositional(CommandArgParseError):
     def __init__(self):

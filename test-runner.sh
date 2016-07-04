@@ -18,14 +18,18 @@ then
     DO_3=Y
 fi
 
+shift $(( $OPTIND - 1 ))
+
 if [[ $DO_2 == Y ]];
 then
     nosetests-2.7 \
         --with-coverage\
         --cover-package=commandargparse \
         --cover-erase \
-        --cover-branches
+        --cover-branches \
+        "$@"
 fi
+
 
 if [[ $DO_3 == Y ]];
 then
@@ -33,5 +37,6 @@ then
         --with-coverage\
         --cover-package=commandargparse \
         --cover-erase \
-        --cover-branches
+        --cover-branches \
+        "$@"
 fi

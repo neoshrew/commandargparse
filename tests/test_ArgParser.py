@@ -2,6 +2,7 @@ import unittest
 
 from commandargparse import (
     ArgParser,
+    CommandArgParseError,
     CommandArgParseMultiError,
     CommandArgParseMissingArg,
     CommandArgParseArgValidationFailed,
@@ -18,6 +19,15 @@ from commandargparse import (
 
 
 class TestArgParser(unittest.TestCase):
+    def _test_exception_str_works(self, exc_inst):
+        try:
+            _ = str(exc_inst)
+        except Exception as e:
+            self.fail(
+                "Failed to coerce exception type {} to string: {}".format(
+                    type(exc_inst), e)
+            )
+
     def test_nostrict_noset_empty(self):
         args = []
 
@@ -116,16 +126,20 @@ class TestArgParser(unittest.TestCase):
 
         parser = ArgParser(strict=True)
 
-        with self.assertRaises(CommandArgParseInvalidArg):
+        with self.assertRaises(CommandArgParseInvalidArg) as ctx:
             parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_strict_invalid_flag(self):
         args = ['-a']
 
         parser = ArgParser(strict=True)
 
-        with self.assertRaises(CommandArgParseInvalidFlag):
+        with self.assertRaises(CommandArgParseInvalidFlag) as ctx:
             parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_strict_missing_arg(self):
         args = []
@@ -133,8 +147,10 @@ class TestArgParser(unittest.TestCase):
         parser = ArgParser(strict=True)
         parser.add_arg('a', required=True)
 
-        with self.assertRaises(CommandArgParseMissingArg):
+        with self.assertRaises(CommandArgParseMissingArg) as ctx:
             parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_strict_undefined_arg(self):
         args = []
@@ -142,8 +158,10 @@ class TestArgParser(unittest.TestCase):
         parser = ArgParser(strict=True)
         parser.parse(args)
 
-        with self.assertRaises(CommandArgParseUndefinedArg):
+        with self.assertRaises(CommandArgParseUndefinedArg) as ctx:
             parser.get_arg('not-exist')
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_strict_undefined_flag(self):
         args = []
@@ -151,8 +169,10 @@ class TestArgParser(unittest.TestCase):
         parser = ArgParser(strict=True)
         parser.parse(args)
 
-        with self.assertRaises(CommandArgParseUndefinedFlag):
+        with self.assertRaises(CommandArgParseUndefinedFlag) as ctx:
             parser.get_flag('x')
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_arg_default(self):
         args = []
@@ -174,8 +194,10 @@ class TestArgParser(unittest.TestCase):
         parser = ArgParser()
         parser.add_arg('a', parser=a_parser)
 
-        with self.assertRaises(CommandArgParseArgValidationFailed):
+        with self.assertRaises(CommandArgParseArgValidationFailed) as ctx:
             parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_positional_arguments_1(self):
         args = ['delicious', 'apple', 'pie']
@@ -212,8 +234,10 @@ class TestArgParser(unittest.TestCase):
         parser = ArgParser()
         parser.add_positional('a', count=3, minimum=3)
 
-        with self.assertRaises(CommandArgParseMissingPositional):
+        with self.assertRaises(CommandArgParseMissingPositional) as ctx:
             parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_invalid_positional_arg(self):
         args = ['banana']
@@ -226,8 +250,10 @@ class TestArgParser(unittest.TestCase):
         parser = ArgParser()
         parser.add_positional('vegetable', parser=a_parser)
 
-        with self.assertRaises(CommandArgParsePosValidationFailed):
+        with self.assertRaises(CommandArgParsePosValidationFailed) as ctx:
             parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_undefied_positional_flag(self):
         args = []
@@ -235,8 +261,10 @@ class TestArgParser(unittest.TestCase):
         parser = ArgParser(strict=True)
         parser.parse(args)
 
-        with self.assertRaises(CommandArgParseUndefinedPositional):
+        with self.assertRaises(CommandArgParseUndefinedPositional) as ctx:
             parser.get_positional('not-exist')
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_argument_end_flag(self):
         args = ['-a', '--b=B', '--A', 'A', '--', '-b', '--b=B', '--A', 'A']
@@ -265,16 +293,34 @@ class TestArgParser(unittest.TestCase):
 
         parser = ArgParser(strict=False)
 
-        with self.assertRaises(CommandArgParseMissingArgValue):
+        with self.assertRaises(CommandArgParseMissingArgValue) as ctx:
             parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_too_many_positionals(self):
         args = ['hello']
 
         parser = ArgParser(strict=True)
 
-        with self.assertRaises(CommandArgParseExtraPositionals):
+        with self.assertRaises(CommandArgParseExtraPositionals) as ctx:
             parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
+
+    def test_missing_positionals(self):
+        args = ['hello', 'world']
+
+        parser = ArgParser(strict=True)
+        parser.add_positional('first_word', minimum=1)
+        parser.add_positional('second_word', minimum=1)
+        parser.add_positional('third_word', minimum=1)
+
+
+        with self.assertRaises(CommandArgParseMissingPositional) as ctx:
+            parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
 
     def test_multi_error(self):
         args = ['-a', '--b', 'b', 'banana']
@@ -285,9 +331,20 @@ class TestArgParser(unittest.TestCase):
             parser.parse(args)
 
         except CommandArgParseMultiError as e:
-            pass
+            self._test_exception_str_works(e)
             #TODO check the errors are as expected?
 
         else:
             self.fail("CommandArgParseMultiError not raised")
+
+
+    def test_invalid_token(self):
+        args = ['----']
+
+        parser = ArgParser()
+
+        with self.assertRaises(CommandArgParseError) as ctx:
+            parser.parse(args)
+
+        self._test_exception_str_works(ctx.exception)
 
